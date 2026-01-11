@@ -39,3 +39,12 @@
 
 # debug information files
 *.dwo
+# Visual Studio / MSBuild
+.vs/
+x64/
+Space-Invaders/x64/
+Debug/
+Release/
+*.vcxproj.user
+*.log
+*.tlog/
