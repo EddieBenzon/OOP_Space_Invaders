@@ -1,5 +1,6 @@
 #pragma once
 #include <raylib.h>
+#include <vector>
 #include "Entity.hpp"
 class SpaceShip : public Entity{
 
@@ -9,4 +10,6 @@ public:
 	void MoveLeft();
 	void MoveRight();
 	void Fire();
+	Vector2 getPosition() const;
+	int getWidth() const;
 };

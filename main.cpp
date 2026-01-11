@@ -1,6 +1,6 @@
 #include <raylib.h>
 #include "GameManager.hpp"
-
+#include "SpaceShip.hpp"
 
 int main() {
     int windowWidth = 1300;
@@ -10,11 +10,11 @@ int main() {
 
     GameManager game;
     while (!WindowShouldClose()) {
-        BeginDrawing();
-        ClearBackground(BLACK);
-        DrawText("IS IT WORKING?", 200, 280, 48, RAYWHITE);
-        EndDrawing();
+        game.HandleInput();
+        game.Update();
+        game.Draw();
     }
+
 
     CloseWindow();
     return 0;

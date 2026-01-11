@@ -3,7 +3,7 @@
 
 class Entity {
 protected:
-	const Texture2D* sprite = nullptr;
+	const Texture2D* image = nullptr;
 	Vector2 position{};
 public:
 	Entity(const Texture2D* s, Vector2 pos);
