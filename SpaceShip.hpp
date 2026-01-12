@@ -9,7 +9,6 @@ public:
 	void Draw() const override;
 	void MoveLeft();
 	void MoveRight();
-	void Fire();
 	Vector2 getPosition() const;
 	int getWidth() const;
 };

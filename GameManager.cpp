@@ -1,12 +1,41 @@
 #include "GameManager.hpp"
 #include "Laser.hpp"
+#include "Enemy.hpp"
+#include <algorithm>
+#include <iostream> // makni kasnije -------------------------
+GameManager::GameManager() :
+    shipTexture(LoadTexture("Assets/spaceship scaled.png")),
+    spaceship(&shipTexture, Vector2{ (static_cast<float>(GetScreenWidth()) - shipTexture.width) / 2, static_cast<float>(GetScreenHeight()) - shipTexture.height - 70 }),
+    obstacleTexture(LoadTexture("Assets/obstacle scaled.png")),
+    backgroundTexture(LoadTexture("Assets/space_1.png")),
+    enemyTextureOne(LoadTexture("Assets/enemy_1_scaled.png")),
+    enemyTextureTwo(LoadTexture("Assets/enemy_2_scaled.png")),
+    enemyTextureThree(LoadTexture("Assets/enemy_3_scaled.png"))
 
-GameManager::GameManager() : 
-	shipTexture(LoadTexture("Assets/spaceship scaled.png")),
-    spaceship(&shipTexture, Vector2{ ((float)GetScreenWidth() - shipTexture.width) / 2, (float)GetScreenHeight() - shipTexture.height - 30 }) {
+{
+    constexpr int obstacleCount = 4;
+    const float obstacleY = GetScreenHeight() - 300;
+
+    float margin = 200.0;
+    float available = GetScreenWidth() - 2.0 * margin;
+    float spacing = available / (obstacleCount - 1);
+
+    for (int i = 0; i < obstacleCount; ++i) {
+        Vector2 pos{
+            margin + spacing * i - obstacleTexture.width / 2.0,
+            obstacleY
+        };
+        obstacles.push_back(std::make_unique<Obstacle>(&obstacleTexture, pos));
+    }
 }
+
 GameManager::~GameManager() {
 	UnloadTexture(shipTexture);
+    UnloadTexture(obstacleTexture);
+    UnloadTexture(enemyTextureOne);
+    UnloadTexture(enemyTextureTwo);
+    UnloadTexture(enemyTextureThree);
+    UnloadTexture(backgroundTexture);
 }
 
 void GameManager::HandleInput() {
@@ -20,10 +49,9 @@ void GameManager::HandleInput() {
     } 
     
     if (IsKeyPressed(KEY_SPACE)) {
-        spaceship.Fire();
         Vector2 currentPosition = spaceship.getPosition();
         Vector2 newLaser{
-        currentPosition.x + spaceship.getWidth() / 2.0f - 2.0f,
+        currentPosition.x + spaceship.getWidth()/2.0 - Laser::WIDTH / 2.0,
         currentPosition.y - 20
         };
         lasers.push_back(std::make_unique<Laser>(newLaser));
@@ -33,17 +61,31 @@ void GameManager::HandleInput() {
 void GameManager::Draw() {
     BeginDrawing();
 
-    ClearBackground(BLACK);
+    DrawTexture(backgroundTexture, 0, 0, WHITE);
+
+
     spaceship.Draw();
+
+    for (auto& obstacle : obstacles) {
+        obstacle->Draw();
+    }
+
     for (auto& laser : lasers) {
         laser->Draw();
     }
 
-
+    for (auto& enemy : enemies) {
+        enemy->Draw();
+    }
+    std::cout << "Active lasers: " << lasers.size() << std::endl; // makni kasnije -------------------------
     EndDrawing();
 }
 
 void GameManager::Update() {
+    float deltaT = GetFrameTime();
+    HandleInput();
+    MoveSwarm(deltaT);
+
     for (auto& laser : lasers) {
         laser->updatePosition();
     }
@@ -53,4 +95,72 @@ void GameManager::Update() {
             return laser->checkOffScreen();
         }), lasers.end());
 
+}
+
+void GameManager::SpawnEnemies() {
+    enemies.clear();
+    constexpr int rows = 5;
+    constexpr int columns = 11;
+
+    constexpr float startX = 100.0;
+    constexpr float startY = 80.0;
+
+    constexpr float spacingX = 90.0;
+    constexpr float spacingY = 80.0;
+
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < columns; j++) {
+            Vector2 newPos{ startX + j * spacingX, startY + i * spacingY };
+            const Texture2D* texPointer = nullptr;
+            int bounty = 0;
+            if (i <= 1) {
+                texPointer = &enemyTextureOne;
+                bounty = 10;
+            }
+            else if (i <= 3) {
+                texPointer = &enemyTextureTwo;
+                bounty = 20;
+            }
+            else {
+                texPointer = &enemyTextureThree;
+                bounty = 30;
+            }
+
+            enemies.emplace_back(std::make_unique<Enemy>(texPointer, newPos, bounty));
+        }
+    }
+
+};
+
+void GameManager::MoveSwarm(float deltaT) {
+    bool anyAlive = false;
+    float minX = 1e9f;
+    float maxX = -1e9f;
+
+    for (const auto& e : enemies) {
+        if (!e) continue;
+        
+        Rectangle rec = e->GetRect();
+        anyAlive = true;
+        minX = std::min(minX, rec.x);
+        maxX = std::max(maxX, rec.x + rec.width);
+    }
+
+    if (!anyAlive) return;
+
+    float deltaX = swarmDirection * swarmSpeed * deltaT;
+    bool hitLeft = (minX + deltaX <= swarmPadding);
+    bool hitRight = (maxX + deltaX >= (GetScreenWidth() - swarmPadding));
+
+    if (hitLeft || hitRight) {
+        swarmDirection *= -1;
+        for (auto& e : enemies) {
+            if (e) e->Translate(Vector2{ 0.0f, swarmDrop });
+        }
+    }
+    else {
+        for (auto& e : enemies) {
+            if (e) e->Translate(Vector2{ deltaX, 0.0f });
+        }
+    }
 }

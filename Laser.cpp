@@ -1,12 +1,12 @@
 #include "Laser.hpp"
 
-Laser::Laser(Vector2 pos) : Entity(nullptr, pos), speed(10){}
+Laser::Laser(Vector2 pos) : Entity(nullptr, pos) {}
 void Laser::Draw() const {
-	DrawRectangle((int)position.x, (int)position.y, 5, 20, SKYBLUE);
+	DrawRectangle(position.x, position.y, WIDTH, HEIGHT, SKYBLUE);
 }
 
 void Laser::updatePosition() {
-	position.y -= speed;
+	position.y -= SPEED;
 }
 
 bool Laser::checkOffScreen() {

@@ -1,6 +1,6 @@
 #include "SpaceShip.hpp"
 #include <raylib.h>
-#include <iostream>
+
 SpaceShip::SpaceShip(const Texture2D* s, Vector2 pos) :
 Entity(s, pos) {}
 
@@ -11,17 +11,13 @@ void SpaceShip::Draw() const {
 }
 
 void SpaceShip::MoveLeft() {
-	position.x -= 7;
+	position.x -= 6;
 }
 
 void SpaceShip::MoveRight() {
-	position.x += 7;
+	position.x += 6;
 }
 
-void SpaceShip::Fire() {
-	std::cout << "Firing weapon!" << std::endl;
-	
-}
 
 Vector2 SpaceShip::getPosition() const {
 	return position;

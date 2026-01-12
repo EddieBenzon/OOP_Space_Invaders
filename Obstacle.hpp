@@ -4,4 +4,5 @@
 class Obstacle : public Entity {
 public:
 	Obstacle(const Texture2D* s, Vector2 pos);
+	void Draw() const override;
 };
