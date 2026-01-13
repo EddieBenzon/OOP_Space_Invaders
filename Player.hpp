@@ -3,10 +3,14 @@
 
 class Player {
 	std::string name;
-	int score;
+	int score = 0;
+	int lives = 2;
 public:
-	std::string getName() const;
-	int getScore() const;
 	void setName(const std::string& input);
+	std::string getName() const;
 	void addToScore(int input);
+	int getScore() const;
+	void loseLife();
+	int getLives() const;
+	void reset();
 };

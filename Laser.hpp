@@ -10,4 +10,5 @@ public:
 	void Draw() const override;
 	void updatePosition();
 	bool checkOffScreen();
+	Rectangle GetRect() const;
 };

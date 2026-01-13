@@ -10,5 +10,9 @@ void Laser::updatePosition() {
 }
 
 bool Laser::checkOffScreen() {
-	return position.y + 20 < 0;
+	return position.y + HEIGHT < 0;
 }
+
+Rectangle Laser::GetRect() const {
+	return Rectangle{ position.x, position.y, static_cast<float>(WIDTH), static_cast<float>(HEIGHT) };
+};

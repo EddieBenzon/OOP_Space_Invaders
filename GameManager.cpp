@@ -2,7 +2,6 @@
 #include "Laser.hpp"
 #include "Enemy.hpp"
 #include <algorithm>
-#include <iostream> // makni kasnije -------------------------
 GameManager::GameManager() :
     shipTexture(LoadTexture("Assets/spaceship scaled.png")),
     spaceship(&shipTexture, Vector2{ (static_cast<float>(GetScreenWidth()) - shipTexture.width) / 2, static_cast<float>(GetScreenHeight()) - shipTexture.height - 70 }),
@@ -63,7 +62,10 @@ void GameManager::Draw() {
 
     DrawTexture(backgroundTexture, 0, 0, WHITE);
 
-
+    DrawText(
+        TextFormat("Score: %d", player.getScore()),
+        20, 20, 30, WHITE
+    );
     spaceship.Draw();
 
     for (auto& obstacle : obstacles) {
@@ -77,7 +79,6 @@ void GameManager::Draw() {
     for (auto& enemy : enemies) {
         enemy->Draw();
     }
-    std::cout << "Active lasers: " << lasers.size() << std::endl; // makni kasnije -------------------------
     EndDrawing();
 }
 
@@ -87,9 +88,12 @@ void GameManager::Update() {
     MoveSwarm(deltaT);
 
     for (auto& laser : lasers) {
-        laser->updatePosition();
+        if (laser->CheckAlive())
+            laser->updatePosition();
     }
 
+    ResolveCollisions();
+    CleanUp();
     lasers.erase(std::remove_if(lasers.begin(), lasers.end(),
         [](const std::unique_ptr<Laser>& laser) {
             return laser->checkOffScreen();
@@ -114,16 +118,16 @@ void GameManager::SpawnEnemies() {
             const Texture2D* texPointer = nullptr;
             int bounty = 0;
             if (i <= 1) {
-                texPointer = &enemyTextureOne;
-                bounty = 10;
+                texPointer = &enemyTextureThree;
+                bounty = 30;
             }
-            else if (i <= 3) {
+            else if ( i > 1 && i <= 3) {
                 texPointer = &enemyTextureTwo;
                 bounty = 20;
             }
             else {
-                texPointer = &enemyTextureThree;
-                bounty = 30;
+                texPointer = &enemyTextureOne;
+                bounty = 10;
             }
 
             enemies.emplace_back(std::make_unique<Enemy>(texPointer, newPos, bounty));
@@ -163,4 +167,37 @@ void GameManager::MoveSwarm(float deltaT) {
             if (e) e->Translate(Vector2{ deltaX, 0.0f });
         }
     }
+}
+
+void GameManager::ResolveCollisions() {
+    for (auto& laser : lasers) {
+        if (!laser->CheckAlive()) continue;
+
+        Rectangle recLaser = laser->GetRect();
+
+        for (auto& enemy : enemies) {
+            if (!enemy->CheckAlive()) continue;
+
+            if (CheckCollisionRecs(recLaser, enemy->GetRect())) {
+                enemy->OnKilled(player);
+                enemy->Kill();
+                laser->Kill();
+                break;
+            }
+        }
+
+    }
+
+};
+
+void GameManager::CleanUp() {
+    lasers.erase(std::remove_if(lasers.begin(), lasers.end(), [](const std::unique_ptr<Laser>& l) {
+        return !l || !l->CheckAlive() || l->checkOffScreen();
+        }), lasers.end());
+
+    enemies.erase(std::remove_if(enemies.begin(), enemies.end(),
+        [](const std::unique_ptr<Entity>& e) {
+            return !e || !e->CheckAlive();
+        }),
+        enemies.end());
 }

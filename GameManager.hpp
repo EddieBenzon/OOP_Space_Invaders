@@ -3,10 +3,12 @@
 #include "Entity.hpp"
 #include "Laser.hpp"
 #include "Obstacle.hpp"
+#include "Player.hpp"
 #include <vector>
 #include <memory>
 
 class GameManager {
+	Player player;
 	Texture2D backgroundTexture;
 	Texture2D shipTexture;
 	Texture2D obstacleTexture;
@@ -31,4 +33,6 @@ public:
 	void SpawnEnemies();
 	void Draw();
 	void MoveSwarm(float deltaT);
+	void ResolveCollisions();
+	void CleanUp();
 };
