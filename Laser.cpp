@@ -16,3 +16,5 @@ bool Laser::checkOffScreen() {
 Rectangle Laser::GetRect() const {
 	return Rectangle{ position.x, position.y, static_cast<float>(WIDTH), static_cast<float>(HEIGHT) };
 };
+
+void Laser::OnKilled(Player& p) {};

@@ -11,4 +11,5 @@ public:
 	void updatePosition();
 	bool checkOffScreen();
 	Rectangle GetRect() const;
+	void OnKilled(Player& p) override;
 };

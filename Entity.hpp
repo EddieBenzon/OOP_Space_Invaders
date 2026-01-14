@@ -19,5 +19,5 @@ public:
 	void Translate(Vector2 t);
 	bool CheckAlive();
 	void Kill();
-	virtual void OnKilled(Player& p);
+	virtual void OnKilled(Player& p) = 0;
 };

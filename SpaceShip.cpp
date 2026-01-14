@@ -26,3 +26,5 @@ Vector2 SpaceShip::getPosition() const {
 int SpaceShip::getWidth() const {
 	return image ? (float)image->width : 0;
 }
+
+void SpaceShip::OnKilled(Player& p) {};

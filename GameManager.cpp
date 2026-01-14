@@ -1,6 +1,7 @@
 #include "GameManager.hpp"
 #include "Laser.hpp"
 #include "Enemy.hpp"
+#include "EnemyUFO.hpp"
 #include <algorithm>
 GameManager::GameManager() :
     shipTexture(LoadTexture("Assets/spaceship scaled.png")),
@@ -9,9 +10,19 @@ GameManager::GameManager() :
     backgroundTexture(LoadTexture("Assets/space_1.png")),
     enemyTextureOne(LoadTexture("Assets/enemy_1_scaled.png")),
     enemyTextureTwo(LoadTexture("Assets/enemy_2_scaled.png")),
-    enemyTextureThree(LoadTexture("Assets/enemy_3_scaled.png"))
-
+    enemyTextureThree(LoadTexture("Assets/enemy_3_scaled.png")),
+    ufoTexture(LoadTexture("Assets/ufo_scaled.png")),
+    gameStart(true), playing(false), gameOver(false)
 {
+    InitAudioDevice();
+    menuMusic = LoadMusicStream("Assets/8bit_menu.mp3");
+    gameMusic = LoadMusicStream("Assets/16bit_loop.mp3");
+    SetMusicVolume(menuMusic, 0.6f);
+    SetMusicVolume(gameMusic, 0.6f);
+    menuMusic.looping = false;
+    gameMusic.looping = true;
+
+    PlayMusicStream(menuMusic);
     constexpr int obstacleCount = 4;
     const float obstacleY = GetScreenHeight() - 300;
 
@@ -29,12 +40,17 @@ GameManager::GameManager() :
 }
 
 GameManager::~GameManager() {
+    UnloadMusicStream(menuMusic);
+    UnloadMusicStream(gameMusic);
+    CloseAudioDevice();
 	UnloadTexture(shipTexture);
     UnloadTexture(obstacleTexture);
     UnloadTexture(enemyTextureOne);
     UnloadTexture(enemyTextureTwo);
     UnloadTexture(enemyTextureThree);
     UnloadTexture(backgroundTexture);
+    UnloadTexture(ufoTexture);
+
 }
 
 void GameManager::HandleInput() {
@@ -59,6 +75,31 @@ void GameManager::HandleInput() {
 
 void GameManager::Draw() {
     BeginDrawing();
+    ClearBackground(BLACK);
+    if (gameStart)
+    {
+        DrawText("KOPILICA INVADERS", 560, 200, 50, WHITE);
+        DrawText("Enter name:", 650, 320, 30, WHITE);
+
+        DrawRectangleLines(600, 360, 400, 50, WHITE);
+        DrawText(nameBuffer.c_str(), 610, 370, 30, WHITE);
+
+        DrawText("Press ENTER to Play", 610, 450, 25, WHITE);
+
+        EndDrawing();
+        return;
+    }
+
+    if (gameOver)
+    {
+        DrawText("GAME OVER", 650, 250, 60, WHITE);
+        DrawText(TextFormat("Player: %s", player.getName().c_str()), 650, 350, 30, WHITE);
+        DrawText(TextFormat("Score: %d", player.getScore()), 650, 390, 30, WHITE);
+        DrawText("Press ENTER to return", 610, 470, 25, WHITE);
+
+        EndDrawing();
+        return;
+    }
 
     DrawTexture(backgroundTexture, 0, 0, WHITE);
 
@@ -66,6 +107,9 @@ void GameManager::Draw() {
         TextFormat("Score: %d", player.getScore()),
         20, 20, 30, WHITE
     );
+    DrawText(TextFormat("ufoTimer: %.2f", ufoTimer), 20, 80, 24, WHITE); // test
+    DrawText(TextFormat("ufo ptr: %s", (ufo ? "YES" : "NO")), 20, 110, 24, WHITE); // test
+
     spaceship.Draw();
 
     for (auto& obstacle : obstacles) {
@@ -79,26 +123,63 @@ void GameManager::Draw() {
     for (auto& enemy : enemies) {
         enemy->Draw();
     }
+    if (ufo && ufo->CheckAlive())
+        ufo->Draw();
     EndDrawing();
 }
 
 void GameManager::Update() {
+    UpdateMusicStream(menuMusic);
+    
     float deltaT = GetFrameTime();
-    HandleInput();
-    MoveSwarm(deltaT);
 
-    for (auto& laser : lasers) {
-        if (laser->CheckAlive())
-            laser->updatePosition();
+    if (gameStart)
+    {
+        UpdateNameBuffer();
+        if (IsKeyPressed(KEY_ENTER)) {
+            StartNewGame();
+            StopMusicStream(menuMusic);
+            PlayMusicStream(gameMusic);
+        }
+        return;
     }
 
-    ResolveCollisions();
-    CleanUp();
-    lasers.erase(std::remove_if(lasers.begin(), lasers.end(),
-        [](const std::unique_ptr<Laser>& laser) {
-            return laser->checkOffScreen();
-        }), lasers.end());
 
+    if (gameOver)
+    {
+        StopMusicStream(gameMusic);
+        if (IsKeyPressed(KEY_ENTER))
+        {
+            PlayMusicStream(menuMusic);
+            nameBuffer.clear();
+            SetState(true, false, false);
+        }
+        return;
+    }
+
+    if (playing) {
+        UpdateMusicStream(gameMusic);
+        HandleInput();
+        MoveSwarm(deltaT);
+        UpdateUFO(deltaT);
+
+        for (auto& laser : lasers) {
+            if (laser->CheckAlive())
+                laser->updatePosition();
+        }
+
+        ResolveCollisions();
+        CleanUp();
+        lasers.erase(std::remove_if(lasers.begin(), lasers.end(),
+            [](const std::unique_ptr<Laser>& laser) {
+                return laser->checkOffScreen();
+            }), lasers.end());
+
+        if (enemies.empty())
+            SetState(false, false, true);
+
+        return;
+    }
 }
 
 void GameManager::SpawnEnemies() {
@@ -185,9 +266,20 @@ void GameManager::ResolveCollisions() {
                 break;
             }
         }
-
     }
 
+    if (ufo && ufo->CheckAlive()) {
+        for (auto& laser : lasers) {
+            if (!laser->CheckAlive()) continue;
+
+            if (CheckCollisionRecs(laser->GetRect(), ufo->GetRect())) {
+                ufo->OnKilled(player);
+                ufo->Kill();
+                laser->Kill();
+                break;
+            }
+        }
+    }
 };
 
 void GameManager::CleanUp() {
@@ -200,4 +292,94 @@ void GameManager::CleanUp() {
             return !e || !e->CheckAlive();
         }),
         enemies.end());
+
+    if (ufo && !ufo->CheckAlive())
+        ufo.reset();
+}
+
+void GameManager::SetState(bool start, bool play, bool over) {
+    gameStart = start;
+    playing = play;
+    gameOver = over;
+}
+
+void GameManager::UpdateNameBuffer() {
+    int c = GetCharPressed();
+    while (c > 0) {
+        if (c >= 32 && c <= 126 && nameBuffer.size() < 12) nameBuffer.push_back(c);
+
+        c = GetCharPressed();
+    }
+
+    if (IsKeyPressed(KEY_BACKSPACE) && !nameBuffer.empty())
+        nameBuffer.pop_back();
+};
+
+void GameManager::StartNewGame() {
+    player.setName(nameBuffer.empty() ? "Nameless one" : nameBuffer);
+    player.reset();
+
+    lasers.clear();
+    enemies.clear();
+    SpawnEnemies();
+    SetState(false, true, false);
+};
+
+
+float GameManager::RandomFloat(float a, float b)
+{
+    int r = GetRandomValue(0, 10000);
+    float t = (float)r / 10000.0f;
+    return a + (b - a) * t;
+}
+
+bool GameManager::UFOExists() const
+{
+    for (const auto& e : enemies)
+    {
+        if (!e || !e->CheckAlive()) continue;
+        if (dynamic_cast<const EnemyUFO*>(e.get()) != nullptr)
+            return true;
+    }
+    return false;
+}
+
+void GameManager::SpawnUFO()
+{
+    if (UFOExists()) return;
+
+    int dir = (GetRandomValue(0, 1) == 0) ? 1 : -1;
+
+    float startX = (dir == 1)
+        ? -(float)ufoTexture.width
+        : (float)GetScreenWidth() + (float)ufoTexture.width;
+
+    Vector2 pos{ startX, 40.0f };
+
+    ufo = std::make_unique<EnemyUFO>(
+        &ufoTexture,
+        pos,
+        250.0f,
+        dir
+    );
+}
+
+void GameManager::UpdateUFO(float dt)
+{
+    ufoTimer -= dt;
+    if (ufoTimer <= 0.0f) {
+        SpawnUFO();
+        ufoTimer = GetRandomValue(
+            (int)(ufoMinDelay * 1000),
+            (int)(ufoMaxDelay * 1000)
+        ) / 1000.0f;
+    }
+
+    if (ufo && ufo->CheckAlive()) {
+        ufo->Update(dt);
+
+        Rectangle r = ufo->GetRect();
+        if (r.x + r.width < 0 || r.x > GetScreenWidth())
+            ufo->Kill();
+    }
 }

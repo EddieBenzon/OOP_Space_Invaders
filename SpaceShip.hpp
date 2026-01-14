@@ -11,4 +11,5 @@ public:
 	void MoveRight();
 	Vector2 getPosition() const;
 	int getWidth() const;
+	void OnKilled(Player& p) override;
 };

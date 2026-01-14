@@ -7,3 +7,5 @@ void Obstacle::Draw() const {
 		DrawTexture(*image, (int)position.x, (int)position.y, WHITE);
 	}
 }
+
+void Obstacle::OnKilled(Player& p) {};

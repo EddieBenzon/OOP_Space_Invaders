@@ -1,3 +1,18 @@
 #include "EnemyUFO.hpp"
 
-EnemyUFO::EnemyUFO(const Texture2D* s, Vector2 pos, int b) : Enemy(s, pos, 200) {}
+EnemyUFO::EnemyUFO(const Texture2D* s, Vector2 pos, float speed, int direction)
+	: Enemy(s, pos, 500), speed(speed), direction(direction) {}
+
+
+void EnemyUFO::OnKilled(Player& p) {
+	p.addToScore(bounty);
+};
+
+
+void EnemyUFO::Update(float deltaT) {
+	position.x += direction * speed * deltaT;
+};
+
+void EnemyUFO::Draw() const {
+	Enemy::Draw();
+};

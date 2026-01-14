@@ -21,4 +21,4 @@ void Entity::Translate(Vector2 t) {
 
 bool Entity::CheckAlive() { return isAlive; }
 void Entity::Kill() { isAlive = false; }
-void Entity::OnKilled(Player& p) {};
+
