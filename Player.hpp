@@ -4,7 +4,7 @@
 class Player {
 	std::string name;
 	int score = 0;
-	int lives = 2;
+	int lives = 3;
 public:
 	void setName(const std::string& input);
 	std::string getName() const;

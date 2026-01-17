@@ -15,12 +15,24 @@ GameManager::GameManager() :
     gameStart(true), playing(false), gameOver(false)
 {
     InitAudioDevice();
+
+    sfxLaser = LoadSound("Assets/laser_shot.wav");
+    sfxEnemyHit = LoadSound("Assets/enemy_hit.wav");
+    sfxPlayerHit = LoadSound("Assets/player_hit.wav");
     menuMusic = LoadMusicStream("Assets/8bit_menu.mp3");
     gameMusic = LoadMusicStream("Assets/16bit_loop.mp3");
+    gameOverMusic = LoadMusicStream("Assets/game_over.mp3");
+
     SetMusicVolume(menuMusic, 0.6f);
     SetMusicVolume(gameMusic, 0.6f);
+    SetMusicVolume(gameOverMusic, 0.4f);
+    SetSoundVolume(sfxLaser, 0.4f);
+    SetSoundVolume(sfxEnemyHit, 0.7f);
+    SetSoundVolume(sfxPlayerHit, 0.7f);
+
     menuMusic.looping = false;
     gameMusic.looping = true;
+    gameOverMusic.looping = false;
 
     PlayMusicStream(menuMusic);
     constexpr int obstacleCount = 4;
@@ -42,15 +54,19 @@ GameManager::GameManager() :
 GameManager::~GameManager() {
     UnloadMusicStream(menuMusic);
     UnloadMusicStream(gameMusic);
+    UnloadMusicStream(gameOverMusic);
+    UnloadSound(sfxLaser);
+    UnloadSound(sfxEnemyHit);
+    UnloadSound(sfxPlayerHit);
     CloseAudioDevice();
-	UnloadTexture(shipTexture);
+
+    UnloadTexture(shipTexture);
     UnloadTexture(obstacleTexture);
     UnloadTexture(enemyTextureOne);
     UnloadTexture(enemyTextureTwo);
     UnloadTexture(enemyTextureThree);
     UnloadTexture(backgroundTexture);
     UnloadTexture(ufoTexture);
-
 }
 
 void GameManager::HandleInput() {
@@ -63,13 +79,15 @@ void GameManager::HandleInput() {
         spaceship.MoveRight();
     } 
     
-    if (IsKeyPressed(KEY_SPACE)) {
+    if (IsKeyDown(KEY_SPACE) && playerFireTimer <= 0.0f) {
         Vector2 currentPosition = spaceship.getPosition();
         Vector2 newLaser{
         currentPosition.x + spaceship.getWidth()/2.0 - Laser::WIDTH / 2.0,
         currentPosition.y - 20
         };
         lasers.push_back(std::make_unique<Laser>(newLaser));
+        PlaySound(sfxLaser);
+        playerFireTimer = playerFireCooldown;
     }
 }
 
@@ -78,7 +96,7 @@ void GameManager::Draw() {
     ClearBackground(BLACK);
     if (gameStart)
     {
-        DrawText("KOPILICA INVADERS", 560, 200, 50, WHITE);
+        DrawText("SPACE INVADERS", 560, 200, 50, WHITE);
         DrawText("Enter name:", 650, 320, 30, WHITE);
 
         DrawRectangleLines(600, 360, 400, 50, WHITE);
@@ -102,13 +120,27 @@ void GameManager::Draw() {
     }
 
     DrawTexture(backgroundTexture, 0, 0, WHITE);
-
+    DrawText(TextFormat("Lives: %d", player.getLives()), 20, 80, 24, WHITE);
     DrawText(
         TextFormat("Score: %d", player.getScore()),
         20, 20, 30, WHITE
     );
-    DrawText(TextFormat("ufoTimer: %.2f", ufoTimer), 20, 80, 24, WHITE); // test
-    DrawText(TextFormat("ufo ptr: %s", (ufo ? "YES" : "NO")), 20, 110, 24, WHITE); // test
+
+    for (auto& l : enemyLasers) {
+        if (l->CheckAlive())
+            l->Draw();
+    }
+
+
+    if (waitingForNextWave) {
+        DrawText(
+            TextFormat("WAVE %d", currentWave + 1),
+            GetScreenWidth() / 2 - 80,
+            GetScreenHeight() / 2 - 20,
+            40,
+            WHITE
+        );
+    }
 
     spaceship.Draw();
 
@@ -129,12 +161,11 @@ void GameManager::Draw() {
 }
 
 void GameManager::Update() {
-    UpdateMusicStream(menuMusic);
     
     float deltaT = GetFrameTime();
 
-    if (gameStart)
-    {
+    if (gameStart) {
+        UpdateMusicStream(menuMusic);
         UpdateNameBuffer();
         if (IsKeyPressed(KEY_ENTER)) {
             StartNewGame();
@@ -145,8 +176,8 @@ void GameManager::Update() {
     }
 
 
-    if (gameOver)
-    {
+    if (gameOver) {
+        UpdateMusicStream(gameOverMusic);
         StopMusicStream(gameMusic);
         if (IsKeyPressed(KEY_ENTER))
         {
@@ -161,6 +192,50 @@ void GameManager::Update() {
         UpdateMusicStream(gameMusic);
         HandleInput();
         MoveSwarm(deltaT);
+        UpdateEnemyFire(deltaT);
+        playerFireTimer -= deltaT;
+        spaceship.UpdateHitEffect(deltaT);
+
+        for (auto& l : enemyLasers)
+            if (l->CheckAlive())
+                l->Update(deltaT);
+
+        enemyLasers.erase(std::remove_if(
+            enemyLasers.begin(),
+            enemyLasers.end(),
+            [](const std::unique_ptr<EnemyLaser>& l) {
+                return !l || !l->CheckAlive() || l->GetPosition().y > GetScreenHeight();
+            }),
+            enemyLasers.end()
+        );
+
+        if (waitingForNextWave) {
+            nextWaveTimer -= deltaT;
+
+            if (nextWaveTimer <= 0.0) {
+                currentWave++;
+                SpawnEnemies();
+                swarmSpeed *= 1.05;
+                waitingForNextWave = false;
+            }
+
+            return;
+        }
+
+
+        float loseLine = GetScreenHeight() - 300;
+
+        for (auto& e : enemies) {
+            if (!e || !e->CheckAlive()) continue;
+
+            if (e->GetPosition().y + e->GetRect().height >= loseLine)
+            {
+                SetState(false, false, true);
+                PlayMusicStream(gameOverMusic);
+                break;
+            }
+        }
+
         UpdateUFO(deltaT);
 
         for (auto& laser : lasers) {
@@ -175,8 +250,10 @@ void GameManager::Update() {
                 return laser->checkOffScreen();
             }), lasers.end());
 
-        if (enemies.empty())
-            SetState(false, false, true);
+        if (enemies.empty() && !waitingForNextWave) {
+            waitingForNextWave = true;
+            nextWaveTimer = nextWaveDelay;
+        }
 
         return;
     }
@@ -263,9 +340,20 @@ void GameManager::ResolveCollisions() {
                 enemy->OnKilled(player);
                 enemy->Kill();
                 laser->Kill();
+                PlaySound(sfxEnemyHit);
                 break;
             }
         }
+        for (auto& obs : obstacles) {
+            if (!obs || !obs->CheckAlive()) continue;
+
+            if (CheckCollisionRecs(recLaser, obs->GetRect()))
+            {
+                laser->Kill();
+                break;
+            }
+        }
+
     }
 
     if (ufo && ufo->CheckAlive()) {
@@ -276,10 +364,46 @@ void GameManager::ResolveCollisions() {
                 ufo->OnKilled(player);
                 ufo->Kill();
                 laser->Kill();
+                PlaySound(sfxEnemyHit);
                 break;
             }
         }
     }
+
+    for (auto& l : enemyLasers) {
+        if (!l->CheckAlive()) continue;
+
+        if (CheckCollisionRecs(l->GetRect(), spaceship.GetRect()))
+        {
+            l->Kill();
+            player.loseLife();
+            spaceship.StartHitEffect();
+            PlaySound(sfxPlayerHit);
+            if (player.getLives() <= 0)
+            {
+                playing = false;
+                gameOver = true;
+
+                StopMusicStream(gameMusic);
+                PlayMusicStream(gameOverMusic);
+            }
+
+            break;
+        }
+        for (auto& obs : obstacles)
+        {
+            if (!obs || !obs->CheckAlive()) continue;
+
+            if (CheckCollisionRecs(l->GetRect(), obs->GetRect()))
+            {
+                l->Kill();
+                break;
+            }
+        }
+
+    }
+
+
 };
 
 void GameManager::CleanUp() {
@@ -288,7 +412,7 @@ void GameManager::CleanUp() {
         }), lasers.end());
 
     enemies.erase(std::remove_if(enemies.begin(), enemies.end(),
-        [](const std::unique_ptr<Entity>& e) {
+        [](const std::unique_ptr<Enemy>& e) {
             return !e || !e->CheckAlive();
         }),
         enemies.end());
@@ -317,10 +441,15 @@ void GameManager::UpdateNameBuffer() {
 
 void GameManager::StartNewGame() {
     player.setName(nameBuffer.empty() ? "Nameless one" : nameBuffer);
+    enemyLasers.clear();
+    enemyFireTimer = 1.5;
     player.reset();
-
     lasers.clear();
     enemies.clear();
+    playerFireTimer = 0.0f;
+    currentWave = 1;
+    waitingForNextWave = false;
+    nextWaveTimer = 0.0f;
     SpawnEnemies();
     SetState(false, true, false);
 };
@@ -381,5 +510,45 @@ void GameManager::UpdateUFO(float dt)
         Rectangle r = ufo->GetRect();
         if (r.x + r.width < 0 || r.x > GetScreenWidth())
             ufo->Kill();
+    }
+}
+
+
+Enemy* GameManager::GetRandomAliveEnemy()
+{
+    std::vector<Enemy*> alive;
+
+    for (auto& e : enemies)
+        if (e && e->CheckAlive())
+            alive.push_back(e.get());
+
+    if (alive.empty())
+        return nullptr;
+
+    int index = GetRandomValue(0, (int)alive.size() - 1);
+    return alive[index];
+}
+
+void GameManager::UpdateEnemyFire(float deltaT)
+{
+    enemyFireTimer -= deltaT;
+
+    if (enemyFireTimer <= 0.0f)
+    {
+        Enemy* shooter = GetRandomAliveEnemy();
+        if (shooter)
+        {
+            Vector2 pos{
+                shooter->GetPosition().x + shooter->GetRect().width / 2.0f - EnemyLaser::WIDTH / 2.0f,
+                shooter->GetPosition().y + shooter->GetRect().height
+            };
+
+            enemyLasers.push_back(std::make_unique<EnemyLaser>(pos));
+        }
+
+        enemyFireTimer = GetRandomValue(
+            (int)(enemyFireMin * 1000),
+            (int)(enemyFireMax * 1000)
+        ) / 1000.0f;
     }
 }

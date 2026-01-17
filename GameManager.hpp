@@ -2,6 +2,7 @@
 #include "SpaceShip.hpp"
 #include "Entity.hpp"
 #include "Laser.hpp"
+#include "EnemyLaser.hpp"
 #include "Obstacle.hpp"
 #include "Player.hpp"
 #include "EnemyUFO.hpp"
@@ -20,31 +21,51 @@ class GameManager {
 	Texture2D enemyTextureThree;
 	Texture2D ufoTexture;
 	SpaceShip spaceship;
-	std::vector<std::unique_ptr<Entity>> enemies;
+	std::vector<std::unique_ptr<Enemy>> enemies;
 	std::vector<std::unique_ptr<Laser>> lasers;
 	std::vector<std::unique_ptr<Obstacle>> obstacles;
+	std::vector<std::unique_ptr<EnemyLaser>> enemyLasers;
 	std::unique_ptr<EnemyUFO> ufo;
 
+	Sound sfxLaser;
+	Sound sfxEnemyHit;
+	Sound sfxPlayerHit;
 	Music menuMusic;
 	Music gameMusic;
+	Music gameOverMusic;
 
+	float enemyFireTimer = 1.5;
+	float enemyFireMin = 0.8;
+	float enemyFireMax = 2.0;
+
+	int currentWave = 1;
+	bool waitingForNextWave = false;
+	float nextWaveTimer = 0.0;
+
+	const float nextWaveDelay = 2.0;
 
 	float swarmDirection = 1.0;
 	float swarmSpeed = 70.0;     
 	float swarmDrop = 18.0;     
 	float swarmPadding = 20.0;
 
-	float ufoTimer = 6.0;
+	float ufoTimer = 10.0;
 	float ufoMinDelay = 8.0;
 	float ufoMaxDelay = 15.0;
 
-	void UpdateUFO(float dt);
+	void UpdateUFO(float deltaT);
 	void SpawnUFO();
 	float RandomFloat(float a, float b);
 	bool UFOExists() const;
 
 
 	void SetState(bool start, bool play, bool over);
+	Enemy* GetRandomAliveEnemy();
+	void UpdateEnemyFire(float deltaT);
+
+	float playerFireCooldown = 0.5;  
+	float playerFireTimer = 0.0;      
+
 
 public:
 	GameManager();
