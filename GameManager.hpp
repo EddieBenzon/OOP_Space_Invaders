@@ -16,9 +16,9 @@ class GameManager {
 	Texture2D backgroundTexture;
 	Texture2D shipTexture;
 	Texture2D obstacleTexture;
-	Texture2D enemyTextureOne;
-	Texture2D enemyTextureTwo;
-	Texture2D enemyTextureThree;
+	Texture2D enemyRedA, enemyRedB;
+	Texture2D enemyGreenA, enemyGreenB;
+	Texture2D enemyBlueA, enemyBlueB;
 	Texture2D ufoTexture;
 	SpaceShip spaceship;
 	std::vector<std::unique_ptr<Enemy>> enemies;

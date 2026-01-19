@@ -12,7 +12,7 @@ public:
 	Entity(const Texture2D* s, Vector2 pos);
 	virtual ~Entity() = default;
 	virtual void Draw() const = 0;
-
+	virtual void Update(float dt) {};
 	Rectangle GetRect() const;
 	Vector2 GetPosition() const;
 	void SetPosition(Vector2 p);

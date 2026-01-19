@@ -8,10 +8,13 @@ GameManager::GameManager() :
     spaceship(&shipTexture, Vector2{ (static_cast<float>(GetScreenWidth()) - shipTexture.width) / 2, static_cast<float>(GetScreenHeight()) - shipTexture.height - 70 }),
     obstacleTexture(LoadTexture("Assets/obstacle scaled.png")),
     backgroundTexture(LoadTexture("Assets/space_1.png")),
-    enemyTextureOne(LoadTexture("Assets/enemy_1_scaled.png")),
-    enemyTextureTwo(LoadTexture("Assets/enemy_2_scaled.png")),
-    enemyTextureThree(LoadTexture("Assets/enemy_3_scaled.png")),
-    ufoTexture(LoadTexture("Assets/ufo_scaled.png")),
+    enemyRedA(LoadTexture("Assets/red1.png")),
+    enemyRedB(LoadTexture("Assets/red2.png")),
+    enemyGreenA(LoadTexture("Assets/green1.png")),
+    enemyGreenB(LoadTexture("Assets/green2.png")),
+    enemyBlueA(LoadTexture("Assets/blue1.png")),
+    enemyBlueB(LoadTexture("Assets/blue2.png")),
+    ufoTexture(LoadTexture("Assets/UFO_Pixel.png")),
     gameStart(true), playing(false), gameOver(false)
 {
     InitAudioDevice();
@@ -62,9 +65,12 @@ GameManager::~GameManager() {
 
     UnloadTexture(shipTexture);
     UnloadTexture(obstacleTexture);
-    UnloadTexture(enemyTextureOne);
-    UnloadTexture(enemyTextureTwo);
-    UnloadTexture(enemyTextureThree);
+    UnloadTexture(enemyRedA);
+    UnloadTexture(enemyRedB);
+    UnloadTexture(enemyGreenA);
+    UnloadTexture(enemyGreenB);
+    UnloadTexture(enemyBlueA);
+    UnloadTexture(enemyBlueB);
     UnloadTexture(backgroundTexture);
     UnloadTexture(ufoTexture);
 }
@@ -163,7 +169,8 @@ void GameManager::Draw() {
 void GameManager::Update() {
     
     float deltaT = GetFrameTime();
-
+    for (auto& e : enemies)
+        if (e) e->Update(deltaT);
     if (gameStart) {
         UpdateMusicStream(menuMusic);
         UpdateNameBuffer();
@@ -273,22 +280,16 @@ void GameManager::SpawnEnemies() {
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < columns; j++) {
             Vector2 newPos{ startX + j * spacingX, startY + i * spacingY };
-            const Texture2D* texPointer = nullptr;
+            const Texture2D* a = nullptr;
+            const Texture2D* b = nullptr;
             int bounty = 0;
-            if (i <= 1) {
-                texPointer = &enemyTextureThree;
-                bounty = 30;
-            }
-            else if ( i > 1 && i <= 3) {
-                texPointer = &enemyTextureTwo;
-                bounty = 20;
-            }
-            else {
-                texPointer = &enemyTextureOne;
-                bounty = 10;
-            }
 
-            enemies.emplace_back(std::make_unique<Enemy>(texPointer, newPos, bounty));
+            if (i <= 1) { a = &enemyRedA; b = &enemyRedB; bounty = 10; }
+            else if (i <= 3) { a = &enemyGreenA; b = &enemyGreenB; bounty = 20; }
+            else { a = &enemyBlueA; b = &enemyBlueB; bounty = 30; }
+
+            enemies.emplace_back(std::make_unique<Enemy>(a, b, newPos, bounty));
+
         }
     }
 
