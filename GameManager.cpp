@@ -312,9 +312,9 @@ void GameManager::SpawnEnemies() {
             const Texture2D* b = nullptr;
             int bounty = 0;
 
-            if (i <= 1) { a = &enemyRedA; b = &enemyRedB; bounty = 10; }
-            else if (i <= 3) { a = &enemyGreenA; b = &enemyGreenB; bounty = 20; }
-            else { a = &enemyBlueA; b = &enemyBlueB; bounty = 30; }
+            if (i < 1) { a = &enemyBlueA; b = &enemyBlueB; bounty = 30; }
+            else if (i <= 2) { a = &enemyGreenA; b = &enemyGreenB; bounty = 20; }
+            else { a = &enemyRedA; b = &enemyRedB; bounty = 10; }
 
             enemies.emplace_back(std::make_unique<Enemy>(a, b, newPos, bounty));
 
