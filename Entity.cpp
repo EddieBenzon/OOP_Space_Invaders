@@ -19,6 +19,8 @@ void Entity::Translate(Vector2 t) {
 	position.y += t.y;
 }
 
-bool Entity::CheckAlive() { return isAlive; }
+bool Entity::CheckAlive() const {
+	return isAlive;
+}
 void Entity::Kill() { isAlive = false; }
 

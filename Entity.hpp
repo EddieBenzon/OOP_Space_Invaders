@@ -17,7 +17,7 @@ public:
 	Vector2 GetPosition() const;
 	void SetPosition(Vector2 p);
 	void Translate(Vector2 t);
-	bool CheckAlive();
+	bool CheckAlive() const;
 	void Kill();
 	virtual void OnKilled(Player& p) = 0;
 };

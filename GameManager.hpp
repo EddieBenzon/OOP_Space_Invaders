@@ -6,8 +6,10 @@
 #include "Obstacle.hpp"
 #include "Player.hpp"
 #include "EnemyUFO.hpp"
+#include "Explosion.hpp"
 #include <vector>
 #include <memory>
+
 
 class GameManager {
 	bool gameStart, playing, gameOver;
@@ -20,12 +22,15 @@ class GameManager {
 	Texture2D enemyGreenA, enemyGreenB;
 	Texture2D enemyBlueA, enemyBlueB;
 	Texture2D ufoTexture;
+	Texture2D explosionSheet;
 	SpaceShip spaceship;
 	std::vector<std::unique_ptr<Enemy>> enemies;
 	std::vector<std::unique_ptr<Laser>> lasers;
 	std::vector<std::unique_ptr<Obstacle>> obstacles;
 	std::vector<std::unique_ptr<EnemyLaser>> enemyLasers;
 	std::unique_ptr<EnemyUFO> ufo;
+	std::vector<std::unique_ptr<Explosion>> explosions;
+
 
 	Sound sfxLaser;
 	Sound sfxEnemyHit;
@@ -63,7 +68,7 @@ class GameManager {
 	Enemy* GetRandomAliveEnemy();
 	void UpdateEnemyFire(float deltaT);
 
-	float playerFireCooldown = 0.5;  
+	float playerFireCooldown = 0.45;  
 	float playerFireTimer = 0.0;      
 
 

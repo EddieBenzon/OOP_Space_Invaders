@@ -15,6 +15,7 @@ GameManager::GameManager() :
     enemyBlueA(LoadTexture("Assets/blue1.png")),
     enemyBlueB(LoadTexture("Assets/blue2.png")),
     ufoTexture(LoadTexture("Assets/UFO_Pixel.png")),
+    explosionSheet(LoadTexture("Assets/explosionEdited.png")),
     gameStart(true), playing(false), gameOver(false)
 {
     InitAudioDevice();
@@ -54,6 +55,16 @@ GameManager::GameManager() :
     }
 }
 
+static std::vector<Rectangle> GetExplosionFrames()
+{
+    return {
+        { 1534, 1151, 97, 97 },
+        { 1632, 1151, 97, 97 },
+        { 1726, 1151, 97, 97 },
+        { 1823, 1151, 97, 97 },
+    };
+}
+
 GameManager::~GameManager() {
     UnloadMusicStream(menuMusic);
     UnloadMusicStream(gameMusic);
@@ -73,6 +84,7 @@ GameManager::~GameManager() {
     UnloadTexture(enemyBlueB);
     UnloadTexture(backgroundTexture);
     UnloadTexture(ufoTexture);
+    UnloadTexture(explosionSheet);
 }
 
 void GameManager::HandleInput() {
@@ -138,6 +150,7 @@ void GameManager::Draw() {
     }
 
 
+
     if (waitingForNextWave) {
         DrawText(
             TextFormat("WAVE %d", currentWave + 1),
@@ -161,8 +174,13 @@ void GameManager::Draw() {
     for (auto& enemy : enemies) {
         enemy->Draw();
     }
+
     if (ufo && ufo->CheckAlive())
         ufo->Draw();
+
+    for (auto& ex : explosions)
+        if (ex) ex->Draw();
+
     EndDrawing();
 }
 
@@ -262,6 +280,16 @@ void GameManager::Update() {
             nextWaveTimer = nextWaveDelay;
         }
 
+
+        for (auto& ex : explosions)
+            if (ex) ex->Update(deltaT);
+
+        explosions.erase(std::remove_if(explosions.begin(), explosions.end(),
+            [](const std::unique_ptr<Explosion>& ex) {
+                return !ex || !ex->CheckAlive();
+            }), explosions.end());
+
+
         return;
     }
 }
@@ -334,10 +362,65 @@ void GameManager::ResolveCollisions() {
 
         Rectangle recLaser = laser->GetRect();
 
+        if (ufo && ufo->CheckAlive())
+        {
+            if (CheckCollisionRecs(recLaser, ufo->GetRect()))
+            {
+
+                Rectangle ur = ufo->GetRect();
+                Vector2 center{ ur.x + ur.width * 0.5f, ur.y + ur.height * 0.5f };
+
+                auto frames = GetExplosionFrames();
+
+                float baseW = frames[0].width;
+                float scale = (baseW > 0.0f) ? (ur.width / baseW) : 1.0f;
+
+                Vector2 exPos{
+                    center.x - (frames[0].width * scale) * 0.5f,
+                    center.y - (frames[0].height * scale) * 0.5f
+                };
+
+                explosions.push_back(std::make_unique<Explosion>(
+                    &explosionSheet,
+                    exPos,
+                    frames,
+                    0.06f,
+                    scale
+                ));
+
+
+                ufo->OnKilled(player);
+                ufo->Kill();
+                laser->Kill();
+                PlaySound(sfxEnemyHit);
+
+                break;
+            }
+        }
+
         for (auto& enemy : enemies) {
             if (!enemy->CheckAlive()) continue;
 
             if (CheckCollisionRecs(recLaser, enemy->GetRect())) {
+                Rectangle er = enemy->GetRect();
+                Vector2 center{ er.x + er.width * 0.5, er.y + er.height * 0.5 };
+
+                auto frames = GetExplosionFrames();
+
+                float baseW = frames[0].width;
+                float scale = (baseW > 0.0) ? (er.width / baseW) : 1.0;
+
+
+                Vector2 exPos{
+                    center.x - (frames[0].width * scale) * 0.5,
+                    center.y - (frames[0].height * scale) * 0.5
+                };
+
+                explosions.push_back(std::make_unique<Explosion>(
+                    &explosionSheet, exPos, GetExplosionFrames(), 0.06, scale
+                ));
+
+
                 enemy->OnKilled(player);
                 enemy->Kill();
                 laser->Kill();
@@ -447,10 +530,10 @@ void GameManager::StartNewGame() {
     player.reset();
     lasers.clear();
     enemies.clear();
-    playerFireTimer = 0.0f;
+    playerFireTimer = 0.0;
     currentWave = 1;
     waitingForNextWave = false;
-    nextWaveTimer = 0.0f;
+    nextWaveTimer = 0.0;
     SpawnEnemies();
     SetState(false, true, false);
 };
@@ -459,7 +542,7 @@ void GameManager::StartNewGame() {
 float GameManager::RandomFloat(float a, float b)
 {
     int r = GetRandomValue(0, 10000);
-    float t = (float)r / 10000.0f;
+    float t = (float)r / 10000.0;
     return a + (b - a) * t;
 }
 
@@ -489,15 +572,15 @@ void GameManager::SpawnUFO()
     ufo = std::make_unique<EnemyUFO>(
         &ufoTexture,
         pos,
-        250.0f,
+        250.0,
         dir
     );
 }
 
-void GameManager::UpdateUFO(float dt)
+void GameManager::UpdateUFO(float deltaT)
 {
-    ufoTimer -= dt;
-    if (ufoTimer <= 0.0f) {
+    ufoTimer -= deltaT;
+    if (ufoTimer <= 0.0) {
         SpawnUFO();
         ufoTimer = GetRandomValue(
             (int)(ufoMinDelay * 1000),
@@ -506,7 +589,7 @@ void GameManager::UpdateUFO(float dt)
     }
 
     if (ufo && ufo->CheckAlive()) {
-        ufo->Update(dt);
+        ufo->Update(deltaT);
 
         Rectangle r = ufo->GetRect();
         if (r.x + r.width < 0 || r.x > GetScreenWidth())
@@ -534,13 +617,13 @@ void GameManager::UpdateEnemyFire(float deltaT)
 {
     enemyFireTimer -= deltaT;
 
-    if (enemyFireTimer <= 0.0f)
+    if (enemyFireTimer <= 0.0)
     {
         Enemy* shooter = GetRandomAliveEnemy();
         if (shooter)
         {
             Vector2 pos{
-                shooter->GetPosition().x + shooter->GetRect().width / 2.0f - EnemyLaser::WIDTH / 2.0f,
+                shooter->GetPosition().x + shooter->GetRect().width / 2.0 - EnemyLaser::WIDTH / 2.0,
                 shooter->GetPosition().y + shooter->GetRect().height
             };
 
@@ -550,6 +633,6 @@ void GameManager::UpdateEnemyFire(float deltaT)
         enemyFireTimer = GetRandomValue(
             (int)(enemyFireMin * 1000),
             (int)(enemyFireMax * 1000)
-        ) / 1000.0f;
+        ) / 1000.0;
     }
 }
